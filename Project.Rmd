@@ -1,0 +1,399 @@
+---
+title: "Project"
+author: "Emily Palese"
+date: "3/15/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(tinytex)
+library(readxl)
+library(corrplot)
+library(RColorBrewer)
+library(ggplot2)
+library(dplyr)
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+knitr::opts_chunk$set(out.width = "60%")
+```
+
+```{r}
+credit <- read_excel('C:/Users/emily/OneDrive/Documents/STAT 3400 Project/credit_cards.xlsx')
+credit
+
+```
+
+```{r}
+str(credit)
+```
+
+```{r}
+credit$Attrition_Flag <- ifelse(credit$Attrition_Flag == "Attrited Customer" ,1,0)
+#Existing customers = 0, Attrited = 1
+
+credit
+
+```
+
+```{r}
+#correlation
+Creditd <- data.frame(credit)
+Creditd <- subset(Creditd, select = -c(Income_Category,Marital_Status,CLIENTNUM))
+Credit.cor <- cor(Creditd)
+Credit.cor
+```
+
+```{r}
+#correlation plot
+
+corrplot(Credit.cor, type = "upper", order = "hclust",
+         col = brewer.pal(n = 8, name = "RdYlBu"))
+
+```
+
+```{r}
+#graph for response variable
+pairs(Creditd)
+```
+
+```{r}
+# graph of everything compared
+
+
+```
+
+```{r}
+p1 <- ggplot(Creditd, aes(x= Credit_Limit, y=Months_on_book, color = Attrition_Flag )) +
+  geom_point() + 
+  geom_line() +
+  ggtitle("Credit Limit vs. Months on book") +
+  xlab("Credit Limit") + 
+  ylab("Months on book") + 
+  facet_grid(Dependent_count ~.)
+p1
+```
+
+```{r}
+mean(Creditd$Attrition_Flag)
+
+```
+```{r}
+t.test(Creditd$Attrition_Flag)
+```
+
+```{r}
+sd(Creditd$Attrition_Flag) / sqrt(length(Creditd$Attrition_Flag))
+```
+
+```{r}
+#predictor variable credit limit
+
+p2 <-ggplot(Creditd, aes(x= Credit_Limit, y=Attrition_Flag, color = Attrition_Flag )) +
+  geom_point() + 
+  geom_line() +
+  ggtitle("Credit Limit vs. Attrition Flag ") +
+  xlab("Credit Limit") + 
+  ylab("Attrition Flag") + 
+  facet_grid(Attrition_Flag ~.)
+p2 
+```
+
+```{r}
+#predictor variable months on book
+ggplot(credit, aes(x=Attrition_Flag, y=Months_on_book )) + 
+  geom_boxplot()
+```
+
+```{r}
+#predictor variable total credit change from Q1 to Q4
+ggplot(credit, aes(x=Attrition_Flag, y=Total_Ct_Chng_Q4_Q1 )) + 
+  geom_boxplot()
+```
+
+```{r}
+#predictor variable total credit change from Q1 to Q4
+ggplot(credit, aes(x=Total_Ct_Chng_Q4_Q1, y=Months_on_book )) + 
+  geom_line()
+```
+
+```{r}
+#predictor variable customer age
+ggplot(credit, aes(x=Attrition_Flag, y=Customer_Age )) + 
+  geom_boxplot()
+```
+
+```{r}
+
+ggplot(credit, aes(x=Customer_Age, y=Dependent_count )) + 
+  geom_line()
+```
+
+```{r}
+ggplot(Creditd, aes(x=Attrition_Flag, y=Credit_Limit )) + 
+  geom_boxplot()
+```
+
+
+```{r}
+geom_bar()
+```
+
+```{r}
+ggplot(credit, aes(x=Attrition_Flag, y=Credit_Limit )) + 
+  geom_boxplot()
+```
+
+```{r}
+ggplot(credit, aes(x=Credit_Limit, y=Months_on_book )) + 
+  geom_line()
+
+```
+
+```{r}
+#months on book line model
+plot(Months_on_book, type = "o")
+```
+
+```{r}
+ggplot(credit, aes(x=Months_on_book, y=Dependent_count )) + 
+  geom_line()
+```
+
+```{r}
+ggplot(credit, aes(x=Customer_Agw, y=Dependent_count )) + 
+  geom_line()
+```
+
+```{r}
+t.test(credit$Customer_Age)
+```
+
+```{r}
+t.test(credit$Total_Ct_Chng_Q4_Q1)
+```
+
+```{r}
+t.test(credit$Credit_Limit)
+```
+
+```{r}
+t.test(credit$Months_on_book)
+```
+
+```{r}
+combine_at <- credit %>%
+  select(Attrition_Flag) %>%
+  na.omit()
+
+```
+
+
+```{r}
+#initiate empty vector for probabilities
+results <- data.frame(prob=rep(NA,200))
+
+#repeat resampling 1000 times, fit model, and save probability
+for(i in 1:200){
+  
+  set.seed(i)
+  rows <- sample(x=nrow(credit),size=nrow(credit),replace=TRUE)
+  resample <- credit[rows,]
+  
+  remodel <- glm(Attrition_Flag~.,data=resample,family='binomial')
+  results$prob[i] <- as.numeric(predict(remodel,type='response'))
+  
+}
+
+#plot sampling distribution
+ggplot(data=results,aes(x=prob)) +
+  geom_histogram(color='black',fill='sky blue',bins=14) +
+  geom_vline(xintercept=quantile(results$prob,probs=0.05),
+             color='red', size=1) +
+  geom_vline(xintercept=quantile(results$prob,probs=0.95),
+             color='red', size=1) +
+  #scale_x_continuous(limits=c(0.90,0.96),breaks=seq(0.90,0.96,0.005)) +
+  labs(title='Bootstrap Sampling Distribution (90% confidence interval)',
+       x='Probability of Closing Credit Card',y='Count') +
+  theme_bw()
+```
+```
+```
+
+```{r}
+#Confidence interval on the slope parameter graph 
+model <- lm(Attrition_Flag ~ Months_on_book + Credit_Limit + Income_Category + Customer_Age + Total_Ct_Chng_Q4_Q1 , data = credit)
+
+# Create a data frame with slope estimates and confidence intervals
+coef_df <- data.frame(variable = names(coef(model))[-1], coef = coef(model)[-1], 
+                      lower = coef(model)[-1] - qt(0.975, df = df.residual(model)) * summary(model)$sigma * sqrt(vcov(model)[-(1), -(1)]), 
+                      upper = coef(model)[-1] + qt(0.975, df = df.residual(model)) * summary(model)$sigma * sqrt(vcov(model)[-(1), -(1)]))
+
+# Create a plot with confidence intervals
+ggplot(coef_df, aes(x = variable, y = coef)) +
+  geom_point(size = 3, color = '#2980B9') +
+  geom_smooth(method = glm, color = '#2C3E50') + 
+ geom_abline(slope=1.5,intercept=2.75,color='blue',linetype='twodash') +
+  geom_abline(slope=2,intercept=1,color='blue') +
+  geom_abline(slope=2.5,intercept=-0.75,color='blue',linetype='dashed') +
+  theme_bw()
+  #geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, color = "black") +
+  labs(x = "Predictor variable", y = "Slope estimate") #+
+  #theme_classic()
+
+```
+
+```{r}
+model <- lm(Attrition_Flag ~ Months_on_book + Credit_Limit + Income_Category + Customer_Age + Total_Ct_Chng_Q4_Q1 , data = credit)
+
+predict_df <- data.frame(Months_on_book = credit$Months_on_book,
+                         Credit_Limit = credit$Credit_Limit,
+                         Income_Category = credit$Income_Category,
+                         Customer_Age = credit$Customer_Age,
+                         Total_Ct_Chng_Q4_Q1 = credit$Total_Ct_Chng_Q4_Q1,
+                         predicted = predict(model))
+
+
+```
+
+```{r}
+ggplot(credit, aes(x = Months_on_book, y = Attrition_Flag)) +
+  geom_point() +
+  geom_line(data = predict_df, aes(x = Months_on_book, y = predicted), color = "red") +
+  labs(x = "Months on Book", y = "Response") +
+  theme_classic()
+
+
+
+```
+
+
+```{r}
+
+x_labels <- c("Months on book", "Credit Limit", "Income Category", "Customer Age", "Total Ct Chng Q4 Q1")
+ggplot(coef_df, aes(x = variable, y = coef)) +
+  geom_point(size = 3, color = '#2980B9') +
+  geom_smooth(method = lm, color = '#2C3E50') + 
+  geom_abline(slope=1.5,intercept=2.75,color='blue',linetype='twodash') +
+  geom_abline(slope=2,intercept=1,color='blue') +
+  geom_abline(slope=2.5,intercept=-0.75,color='blue',linetype='dashed') +
+  theme_bw() +
+  labs(x = "Predictor variable", y = "Slope estimate")
+  scale_x_discrete(labels = x_labels)
+```
+
+
+```{r}
+Creditmod <- subset(credit, select =  c(Attrition_Flag, Customer_Age, Total_Ct_Chng_Q4_Q1 ))
+model1 <-glm(Attrition_Flag~., data = Creditmod, family = 'binomial')
+model2 <-glm(Attrition_Flag~., data = credit, family = 'binomial')
+coefficients(summary(model2))
+coefficients(summary(model1))
+
+```
+```{r}
+summary(model1)$aic
+
+```
+```{r}
+summary(model2)$aic
+```
+
+```{r}
+library(leaps)
+predictors <- credit[, c("Months_on_book", "Credit_Limit", "Income_Category", "Customer_Age", "Total_Ct_Chng_Q4_Q1")] 
+
+predictors$Months_on_book <-(predictors$mMonths_on_book)
+predictors$Credit_Limit <- as.numeric(predictors$Credit_Limit)
+predictors$Income_Category <- as.numeric(predictors$Income_Category)
+predictors$Customer_Age <- as.numeric(predictors$Customer_Age)
+predictors$Total_Ct_Chng_Q4_Q1 <- as.numeric(predictors$Total_Ct_Chng_Q4_Q1)
+
+
+
+model_back <- regsubsets( Attrition_Flag~ ., data = credit, method = "backward", nvmax = 5)
+model_back
+summary(model_back)$rsq
+summary(model_back)
+```
+
+```{r}
+model <- lm(Attrition_Flag~.,data=credit)
+summary(model)$adj.r.squared
+```
+
+```{r}
+model1a <- lm(Attrition_Flag~.-Months_on_book,data=credit)
+model1b <- lm(Attrition_Flag~.-Credit_Limit,data=credit)
+model1c <- lm(Attrition_Flag~.-Income_Category,data=credit)
+model1d <- lm(Attrition_Flag~.-Customer_Age,data=credit)
+model1e <- lm(Attrition_Flag~.-Total_Ct_Chng_Q4_Q1,data=credit)
+
+summary(model1a)$adj.r.squared
+summary(model1b)$adj.r.squared
+summary(model1c)$adj.r.squared
+summary(model1d)$adj.r.squared
+summary(model1e)$adj.r.squared
+```
+
+```{r}
+model2a <- lm(Attrition_Flag~.-Income_Category-Months_on_book,data=credit)
+model2b <- lm(Attrition_Flag~.-Income_Category-Credit_Limit,data=credit)
+model2d <- lm(Attrition_Flag~.-Income_Category-Customer_Age,data=credit)
+model2e <- lm(Attrition_Flag~.-Income_Category-Total_Ct_Chng_Q4_Q1,data=credit)
+
+summary(model2a)$adj.r.squared
+summary(model2b)$adj.r.squared
+#summary(model2c)$adj.r.squared
+summary(model2d)$adj.r.squared
+summary(model2e)$adj.r.squared
+```
+
+```{r}
+model3a <- lm(Attrition_Flag~.-Credit_Limit-Income_Category-Months_on_book,data=credit)
+#model3b <- lm(Attrition_Flag~.-Income_Category-Credit_Limit,data=credit)
+model3d <- lm(Attrition_Flag~.-Credit_Limit-Income_Category-Customer_Age,data=credit)
+model3e <- lm(Attrition_Flag~.-Credit_Limit-Income_Category-Total_Ct_Chng_Q4_Q1,data=credit)
+
+summary(model3a)$adj.r.squared
+#summary(model3b)$adj.r.squared
+#summary(model2c)$adj.r.squared
+summary(model3d)$adj.r.squared
+summary(model3e)$adj.r.squared
+```
+
+```{r}
+#model3a <- lm(Attrition_Flag~.-Credit_Limit-Income_Category-Months_on_book,data=credit)
+#model3b <- lm(Attrition_Flag~.-Income_Category-Credit_Limit,data=credit)
+model4d <- lm(Attrition_Flag~.-Months_on_book-Credit_Limit-Income_Category-Customer_Age,data=credit)
+model4e <- lm(Attrition_Flag~.-Months_on_book-Credit_Limit-Income_Category-Total_Ct_Chng_Q4_Q1,data=credit)
+
+#summary(model3a)$adj.r.squared
+#summary(model3b)$adj.r.squared
+#summary(model2c)$adj.r.squared
+summary(model4d)$adj.r.squared
+summary(model4e)$adj.r.squared
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
